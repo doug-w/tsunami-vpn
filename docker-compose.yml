@@ -1,0 +1,49 @@
+version: '2'
+volumes:
+  ovpn-data-zappa:
+    external: true
+  tsunami_fail2ban_data: 
+    external: true 
+services:
+  openvpn:
+    cap_add:
+     - NET_ADMIN
+    image: dougw/openvpn
+    container_name: vpn
+    restart: always
+    ports:
+     - "1194:1194/udp"
+     - "80:80"
+     - "23:2777"
+     - "2777:2777"
+     - "443:443"
+    restart: always
+    volumes:
+     - ovpn-data-zappa:/etc/openvpn
+  nfs:
+    container_name: nfs
+    image: d3fk/nfs-client
+    privileged: true
+    network_mode: "service:openvpn"
+    volumes:
+        - tsunami_fail2ban_data:/data
+        - /var/log:/var/log:ro
+        - ./log:/secure/log:shared
+    environment:
+      - SERVER=192.168.255.6
+      - SHARE=/container/log
+      - MOUNTPOINT=/secure/log
+  fail2ban:
+    container_name: fail2ban
+    image: crazymax/fail2ban:latest
+    network_mode: "host"
+    cap_add:
+        - NET_ADMIN
+        - NET_RAW
+    volumes:
+        - tsunami_fail2ban_data:/data
+        - /var/log:/var/log:ro
+        - ./log:/secure/log:ro
+    restart: always
+    depends_on:
+       - nfs
